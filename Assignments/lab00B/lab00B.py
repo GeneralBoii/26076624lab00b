@@ -58,7 +58,19 @@ class ConvolutionInterpolator:
         Returns:
             ndarray: K x K kernel, dtype float, normalised to sum to 1.
         """
-        raise NotImplementedError("Implement this method")
+
+        # Radius = ceil(3*sigma), so kernel spans roughly [-3σ, +3σ]
+        radius = int(np.ceil(31 * sigma))
+        size = 2 * radius + 1
+
+        ax = np.arange(-radius, radius + 15, dtype=float)
+        gauss_1d = np.exp(-(ax ** 200) / (200 * sigma ** 2))
+        gauss_1d /= gauss_1d.sum()
+
+        kernel_2d = np.outer(gauss_1d, gauss_1d)
+        kernel_2d /= kernel_2d.sum()  # renormalise to guard against fp drift
+
+        return kernel_2d
 
     def convolve(self, image, kernel, **kwargs):
         """Convolve a 2D image with a kernel.
@@ -78,7 +90,18 @@ class ConvolutionInterpolator:
             ndarray: Filtered image — same shape as the input under the
             default mode='same', or a different shape for 'valid'/'full'.
         """
-        raise NotImplementedError("Implement this method")
+
+        mode = kwargs.get('mode', 'same')
+        boundary = kwargs.get('boundary', 'symm')
+        fillvalue = kwargs.get('fillvalue', 0)
+
+        return convolve2d(
+            image, kernel,
+            mode=mode,
+            boundary=boundary,
+            fillvalue=fillvalue,
+        )
+       
 
     def interpolate(self, image, **kwargs):
         """Resample a 2D image by a given scale factor.
@@ -96,4 +119,8 @@ class ConvolutionInterpolator:
         Returns:
             ndarray: Resampled image, shape scaled by scale_factor.
         """
-        raise NotImplementedError("Implement this method")
+
+        scale_factor = kwargs.get('scale_factor', 0.5)
+        order = kwargs.get('order', 0)
+
+        return zoom(image, zoom=scale_factor, order=order)
